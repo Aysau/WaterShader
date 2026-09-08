@@ -13,312 +13,318 @@
 
 namespace
 {
-    constexpr int WindowWidth = 900;
-    constexpr int WindowHeight = 600;
+	constexpr int WindowWidth = 900;
+	constexpr int WindowHeight = 600;
 
-    void glfwErrorCallback(int error, const char* description)
-    {
-        std::cerr << "GLFW error (" << error << "): " << description << '\n';
-    }
+	void glfwErrorCallback(int error, const char* description)
+	{
+		std::cerr << "GLFW error (" << error << "): " << description << '\n';
+	}
 
-    std::string readTextFile(const std::string& path)
-    {
-        std::ifstream file(path);
-        if (!file)
-        {
-            throw std::runtime_error("Could not open file: " + path);
-        }
+	std::string readTextFile(const std::string& path)
+	{
+		std::ifstream file(path);
+		if (!file)
+		{
+			throw std::runtime_error("Could not open file: " + path);
+		}
 
-        std::ostringstream contents;
-        contents << file.rdbuf();
-        return contents.str();
-    }
+		std::ostringstream contents;
+		contents << file.rdbuf();
+		return contents.str();
+	}
 
-    GLuint compileShader(GLenum type, const std::string& source, const std::string& label)
-    {
-        const GLuint shader = glCreateShader(type);
-        const char* sourcePtr = source.c_str();
+	GLuint compileShader(GLenum type, const std::string& source, const std::string& label)
+	{
+		const GLuint shader = glCreateShader(type);
+		const char* sourcePtr = source.c_str();
 
-        glShaderSource(shader, 1, &sourcePtr, nullptr);
-        glCompileShader(shader);
+		glShaderSource(shader, 1, &sourcePtr, nullptr);
+		glCompileShader(shader);
 
-        GLint success = GL_FALSE;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+		GLint success = GL_FALSE;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 
-        if (success == GL_FALSE)
-        {
-            GLint logLength = 0;
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+		if (success == GL_FALSE)
+		{
+			GLint logLength = 0;
+			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
 
-            std::string log(static_cast<std::size_t>(logLength), '\0');
-            glGetShaderInfoLog(shader, logLength, nullptr, log.data());
+			std::string log(static_cast<std::size_t>(logLength), '\0');
+			glGetShaderInfoLog(shader, logLength, nullptr, log.data());
 
-            glDeleteShader(shader);
-            throw std::runtime_error("Shader compilation failed (" + label + "):\n" + log);
-        }
+			glDeleteShader(shader);
+			throw std::runtime_error("Shader compilation failed (" + label + "):\n" + log);
+		}
 
-        return shader;
-    }
+		return shader;
+	}
 
-    GLuint createShaderProgram(const std::string& vertexPath, const std::string& fragmentPath)
-    {
-        const std::string vertexSource = readTextFile(vertexPath);
-        const std::string fragmentSource = readTextFile(fragmentPath);
+	GLuint createShaderProgram(const std::string& vertexPath, const std::string& fragmentPath)
+	{
+		const std::string vertexSource = readTextFile(vertexPath);
+		const std::string fragmentSource = readTextFile(fragmentPath);
 
-        const GLuint vertexShader =
-            compileShader(GL_VERTEX_SHADER, vertexSource, vertexPath);
-        const GLuint fragmentShader =
-            compileShader(GL_FRAGMENT_SHADER, fragmentSource, fragmentPath);
+		const GLuint vertexShader =
+			compileShader(GL_VERTEX_SHADER, vertexSource, vertexPath);
+		const GLuint fragmentShader =
+			compileShader(GL_FRAGMENT_SHADER, fragmentSource, fragmentPath);
 
-        const GLuint program = glCreateProgram();
-        glAttachShader(program, vertexShader);
-        glAttachShader(program, fragmentShader);
-        glLinkProgram(program);
+		const GLuint program = glCreateProgram();
+		glAttachShader(program, vertexShader);
+		glAttachShader(program, fragmentShader);
+		glLinkProgram(program);
 
-        glDeleteShader(vertexShader);
-        glDeleteShader(fragmentShader);
+		glDeleteShader(vertexShader);
+		glDeleteShader(fragmentShader);
 
-        GLint success = GL_FALSE;
-        glGetProgramiv(program, GL_LINK_STATUS, &success);
+		GLint success = GL_FALSE;
+		glGetProgramiv(program, GL_LINK_STATUS, &success);
 
-        if (success == GL_FALSE)
-        {
-            GLint logLength = 0;
-            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+		if (success == GL_FALSE)
+		{
+			GLint logLength = 0;
+			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
 
-            std::string log(static_cast<std::size_t>(logLength), '\0');
-            glGetProgramInfoLog(program, logLength, nullptr, log.data());
+			std::string log(static_cast<std::size_t>(logLength), '\0');
+			glGetProgramInfoLog(program, logLength, nullptr, log.data());
 
-            glDeleteProgram(program);
-            throw std::runtime_error("Shader program link failed:\n" + log);
-        }
+			glDeleteProgram(program);
+			throw std::runtime_error("Shader program link failed:\n" + log);
+		}
 
-        return program;
-    }
+		return program;
+	}
 
-    void framebufferSizeCallback(GLFWwindow*, int width, int height)
-    {
-        glViewport(0, 0, width, height);
-    }
+	void framebufferSizeCallback(GLFWwindow*, int width, int height)
+	{
+		glViewport(0, 0, width, height);
+	}
 
-    void buildGridMesh(int resolution, float size, std::vector<float>& vertices)
-    {
-        vertices.clear();
-        const float start = -size / 2.0f;
-        const float step = size / resolution;
+	void buildGridMesh(int resolution, float size, std::vector<float>& vertices)
+	{
+		vertices.clear();
+		const float start = -size / 2.0f;
+		const float step = size / resolution;
 
-        for (int z = 0; z < resolution; ++z)
-        {
-            for (int x = 0; x < resolution; ++x)
-            {
-                float x0 = start + x * step;
-                float z0 = start + z * step;
-                float x1 = x0 + step;
-                float z1 = z0 + step;
+		for (int z = 0; z < resolution; ++z)
+		{
+			for (int x = 0; x < resolution; ++x)
+			{
+				float x0 = start + x * step;
+				float z0 = start + z * step;
+				float x1 = x0 + step;
+				float z1 = z0 + step;
 
-                vertices.push_back(x0); vertices.push_back(0.0f); vertices.push_back(z0);
-                vertices.push_back(x1); vertices.push_back(0.0f); vertices.push_back(z0);
-                vertices.push_back(x0); vertices.push_back(0.0f); vertices.push_back(z1);
+				vertices.push_back(x0); vertices.push_back(0.0f); vertices.push_back(z0);
+				vertices.push_back(x1); vertices.push_back(0.0f); vertices.push_back(z0);
+				vertices.push_back(x0); vertices.push_back(0.0f); vertices.push_back(z1);
 
-                vertices.push_back(x0); vertices.push_back(0.0f); vertices.push_back(z1);
-                vertices.push_back(x1); vertices.push_back(0.0f); vertices.push_back(z0);
-                vertices.push_back(x1); vertices.push_back(0.0f); vertices.push_back(z1);
-            }
-        }
-    }
+				vertices.push_back(x0); vertices.push_back(0.0f); vertices.push_back(z1);
+				vertices.push_back(x1); vertices.push_back(0.0f); vertices.push_back(z0);
+				vertices.push_back(x1); vertices.push_back(0.0f); vertices.push_back(z1);
+			}
+		}
+	}
+	int currentNormalMode = 1;
+	int currentResolution = 150;
+	bool meshNeedsUpdate = false;
 
-    int currentResolution = 150;
-    bool meshNeedsUpdate = false;
+	void processInput(GLFWwindow* window)
+	{
+		if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		{
+			glfwSetWindowShouldClose(window, GLFW_TRUE);
+		}
 
-    void processInput(GLFWwindow* window)
-    {
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        {
-            glfwSetWindowShouldClose(window, GLFW_TRUE);
-        }
-
-        if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS && currentResolution != 25)
-        {
-            currentResolution = 25;
-            meshNeedsUpdate = true;
-        }
-        if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS && currentResolution != 75)
-        {
-            currentResolution = 75;
-            meshNeedsUpdate = true;
-        }
-        if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS && currentResolution != 150)
-        {
-            currentResolution = 150;
-            meshNeedsUpdate = true;
-        }
-        if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS && currentResolution != 1000)
-        {
-            currentResolution = 1000;
-            meshNeedsUpdate = true;
-        }
-    }
-} 
+		if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS && currentResolution != 25)
+		{
+			currentResolution = 25;
+			meshNeedsUpdate = true;
+		}
+		if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS && currentResolution != 75)
+		{
+			currentResolution = 75;
+			meshNeedsUpdate = true;
+		}
+		if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS && currentResolution != 150)
+		{
+			currentResolution = 150;
+			meshNeedsUpdate = true;
+		}
+		if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS && currentResolution != 1000)
+		{
+			currentResolution = 1000;
+			meshNeedsUpdate = true;
+		}
+		if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS) currentNormalMode = 0; //Approx
+		if (glfwGetKey(window, GLFW_KEY_6) == GLFW_PRESS) currentNormalMode = 1; //Exact
+		if (glfwGetKey(window, GLFW_KEY_7) == GLFW_PRESS) currentNormalMode = 2; //Finite Diff
+	}
+}
 
 int main()
 {
-    glfwSetErrorCallback(glfwErrorCallback);
-    if (glfwInit() != GLFW_TRUE)
-    {
-        std::cerr << "Failed to initialize GLFW.\n";
-        return 1;
-    }
+	glfwSetErrorCallback(glfwErrorCallback);
+	if (glfwInit() != GLFW_TRUE)
+	{
+		std::cerr << "Failed to initialize GLFW.\n";
+		return 1;
+	}
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 #ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 #endif
 
-    GLFWwindow* window =
-        glfwCreateWindow(WindowWidth, WindowHeight, "Water Shader Benchmarking", nullptr, nullptr);
+	GLFWwindow* window =
+		glfwCreateWindow(WindowWidth, WindowHeight, "Water Shader Benchmarking", nullptr, nullptr);
 
-    if (window == nullptr)
-    {
-        std::cerr << "Failed to create a GLFW window.\n";
-        glfwTerminate();
-        return 1;
-    }
+	if (window == nullptr)
+	{
+		std::cerr << "Failed to create a GLFW window.\n";
+		glfwTerminate();
+		return 1;
+	}
 
-    glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
-    glfwSwapInterval(0); 
+	glfwMakeContextCurrent(window);
+	glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+	glfwSwapInterval(0);
 
-    const int loadedVersion = gladLoadGL(glfwGetProcAddress);
-    if (loadedVersion == 0)
-    {
-        std::cerr << "Failed to load OpenGL functions with GLAD.\n";
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return 1;
-    }
+	const int loadedVersion = gladLoadGL(glfwGetProcAddress);
+	if (loadedVersion == 0)
+	{
+		std::cerr << "Failed to load OpenGL functions with GLAD.\n";
+		glfwDestroyWindow(window);
+		glfwTerminate();
+		return 1;
+	}
 
-    std::vector<float> vertices;
-    const float meshSize = 10.0f;
-    buildGridMesh(currentResolution, meshSize, vertices);
+	std::vector<float> vertices;
+	const float meshSize = 10.0f;
+	buildGridMesh(currentResolution, meshSize, vertices);
 
-    GLuint vao = 0;
-    GLuint vbo = 0;
+	GLuint vao = 0;
+	GLuint vbo = 0;
 
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
+	glGenVertexArrays(1, &vao);
+	glGenBuffers(1, &vbo);
 
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+	glBindVertexArray(vao);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
 
-    constexpr GLsizei stride = 3 * sizeof(float);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(0));
-    glEnableVertexAttribArray(0);
-    glBindVertexArray(0);
+	constexpr GLsizei stride = 3 * sizeof(float);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, reinterpret_cast<void*>(0));
+	glEnableVertexAttribArray(0);
+	glBindVertexArray(0);
 
-    GLuint shaderProgram = 0;
-    try
-    {
-        shaderProgram = createShaderProgram("shaders/basic.vert", "shaders/basic.frag");
-    }
-    catch (const std::exception& exception)
-    {
-        std::cerr << exception.what() << '\n';
-        glDeleteBuffers(1, &vbo);
-        glDeleteVertexArrays(1, &vao);
-        glfwDestroyWindow(window);
-        glfwTerminate();
-        return 1;
-    }
+	GLuint shaderProgram = 0;
+	try
+	{
+		shaderProgram = createShaderProgram("shaders/basic.vert", "shaders/basic.frag");
+	}
+	catch (const std::exception& exception)
+	{
+		std::cerr << exception.what() << '\n';
+		glDeleteBuffers(1, &vbo);
+		glDeleteVertexArrays(1, &vao);
+		glfwDestroyWindow(window);
+		glfwTerminate();
+		return 1;
+	}
 
-    const GLint modelLocation = glGetUniformLocation(shaderProgram, "model");
-    const GLint viewLocation = glGetUniformLocation(shaderProgram, "view");
-    const GLint projectionLocation = glGetUniformLocation(shaderProgram, "projection");
-    const GLint timeLocation = glGetUniformLocation(shaderProgram, "time");
+	const GLint modelLocation = glGetUniformLocation(shaderProgram, "model");
+	const GLint viewLocation = glGetUniformLocation(shaderProgram, "view");
+	const GLint projectionLocation = glGetUniformLocation(shaderProgram, "projection");
+	const GLint timeLocation = glGetUniformLocation(shaderProgram, "time");
+	const GLint normalModeLocation = glGetUniformLocation(shaderProgram, "normalMode");
 
-    const glm::mat4 model(1.0f);
-    const glm::mat4 view = glm::lookAt(
-        glm::vec3(0.0f, 3.0f, 5.0f),
-        glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 1.0f, 0.0f)
-    );
+	const glm::mat4 model(1.0f);
+	const glm::mat4 view = glm::lookAt(
+		glm::vec3(0.0f, 3.0f, 5.0f),
+		glm::vec3(0.0f, 0.0f, 0.0f),
+		glm::vec3(0.0f, 1.0f, 0.0f)
+	);
 
-    const float fieldOfView = glm::radians(45.0f);
-    const float nearPlane = 0.1f;
-    const float farPlane = 100.0f;
+	const float fieldOfView = glm::radians(45.0f);
+	const float nearPlane = 0.1f;
+	const float farPlane = 100.0f;
 
-    double lastTime = glfwGetTime();
-    int frameCount = 0;
+	double lastTime = glfwGetTime();
+	int frameCount = 0;
 
-    while (glfwWindowShouldClose(window) == GLFW_FALSE)
-    {
-        processInput(window);
+	while (glfwWindowShouldClose(window) == GLFW_FALSE)
+	{
+		processInput(window);
 
-        if (meshNeedsUpdate)
-        {
-            buildGridMesh(currentResolution, meshSize, vertices);
-            glBindBuffer(GL_ARRAY_BUFFER, vbo);
-            glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
-            meshNeedsUpdate = false;
-        }
+		if (meshNeedsUpdate)
+		{
+			buildGridMesh(currentResolution, meshSize, vertices);
+			glBindBuffer(GL_ARRAY_BUFFER, vbo);
+			glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(float), vertices.data(), GL_DYNAMIC_DRAW);
+			meshNeedsUpdate = false;
+		}
 
-        double currentTime = glfwGetTime();
-        frameCount++;
-        if (currentTime - lastTime >= 0.25)
-        {
-            double fps = static_cast<double>(frameCount) / (currentTime - lastTime);
-            double frameTimeMs = ((currentTime - lastTime) / frameCount) * 1000.0;
-            int triangleCount = static_cast<int>(vertices.size() / 9);
+		double currentTime = glfwGetTime();
+		frameCount++;
+		if (currentTime - lastTime >= 0.25)
+		{
+			double fps = static_cast<double>(frameCount) / (currentTime - lastTime);
+			double frameTimeMs = ((currentTime - lastTime) / frameCount) * 1000.0;
+			int triangleCount = static_cast<int>(vertices.size() / 9);
 
-            std::string title = "Water Shader Benchmark | Res: " + std::to_string(currentResolution) +
-                "x" + std::to_string(currentResolution) +
-                " (" + std::to_string(triangleCount) + " tris) | " +
-                std::to_string(static_cast<int>(fps)) + " FPS | " +
-                std::to_string(frameTimeMs).substr(0, 5) + " ms";
+			std::string modeStr = (currentNormalMode == 0) ? "Approx" : (currentNormalMode == 1) ? "Exact" : "FinDiff";
 
-            glfwSetWindowTitle(window, title.c_str());
-            frameCount = 0;
-            lastTime = currentTime;
-        }
+			std::string title = "Res: " + std::to_string(currentResolution) + "x" + std::to_string(currentResolution) +
+				" | Mode: " + modeStr +
+				" | " + std::to_string(static_cast<int>(fps)) + " FPS | " +
+				std::to_string(frameTimeMs).substr(0, 5) + " ms";
 
-        int framebufferWidth = 0;
-        int framebufferHeight = 0;
-        glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
+			glfwSetWindowTitle(window, title.c_str());
+			frameCount = 0;
+			lastTime = currentTime;
+		}
 
-        if (framebufferWidth == 0 || framebufferHeight == 0)
-        {
-            glfwPollEvents();
-            continue;
-        }
+		int framebufferWidth = 0;
+		int framebufferHeight = 0;
+		glfwGetFramebufferSize(window, &framebufferWidth, &framebufferHeight);
 
-        const float aspectRatio = static_cast<float>(framebufferWidth) / static_cast<float>(framebufferHeight);
-        const glm::mat4 projection = glm::perspective(fieldOfView, aspectRatio, nearPlane, farPlane);
+		if (framebufferWidth == 0 || framebufferHeight == 0)
+		{
+			glfwPollEvents();
+			continue;
+		}
 
-        glClearColor(0.08f, 0.09f, 0.12f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+		const float aspectRatio = static_cast<float>(framebufferWidth) / static_cast<float>(framebufferHeight);
+		const glm::mat4 projection = glm::perspective(fieldOfView, aspectRatio, nearPlane, farPlane);
 
-        glUseProgram(shaderProgram);
-        glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(model));
-        glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
-        glUniform1f(timeLocation, static_cast<float>(glfwGetTime()));
+		glClearColor(0.08f, 0.09f, 0.12f, 1.0f);
+		glClear(GL_COLOR_BUFFER_BIT);
 
-        glBindVertexArray(vao);
-        glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 3));
+		glUseProgram(shaderProgram);
+		glUniformMatrix4fv(modelLocation, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
+		glUniformMatrix4fv(projectionLocation, 1, GL_FALSE, glm::value_ptr(projection));
+		glUniform1f(timeLocation, static_cast<float>(glfwGetTime()));
+		glUniform1i(normalModeLocation, currentNormalMode);
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
+		glBindVertexArray(vao);
+		glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size() / 3));
 
-    glDeleteProgram(shaderProgram);
-    glDeleteBuffers(1, &vbo);
-    glDeleteVertexArrays(1, &vao);
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
 
-    glfwDestroyWindow(window);
-    glfwTerminate();
+	glDeleteProgram(shaderProgram);
+	glDeleteBuffers(1, &vbo);
+	glDeleteVertexArrays(1, &vao);
 
-    return 0;
+	glfwDestroyWindow(window);
+	glfwTerminate();
+
+	return 0;
 }
