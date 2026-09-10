@@ -225,7 +225,7 @@ int main()
 	GLuint shaderProgram = 0;
 	try
 	{
-		shaderProgram = createShaderProgram("shaders/basic.vert", "shaders/basic.frag");
+		shaderProgram = createShaderProgram("shaders/basic.vert", "shaders/waterShader.frag");
 	}
 	catch (const std::exception& exception)
 	{
